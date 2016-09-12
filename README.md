@@ -1,7 +1,7 @@
 # nba-movement-data
 Ever since the nba stopped public access of their movement data, I though it would be good to have a copy of @neilmj data repo incase he deletes his data repo.
 
-Credit: [@neilmj]()
+Credit: [@neilmj](https://github.com/neilmj/BasketballData)
 
 ## Setup
 To unzip the 7z file run this command
