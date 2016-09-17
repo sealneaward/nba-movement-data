@@ -6,5 +6,6 @@ Credit: [@neilmj](https://github.com/neilmj/BasketballData)
 ## Setup
 To unzip the 7z file run this command
 ```
-sudo ./data/setup.sh
+cd data
+sudo ./setup.sh
 ```
