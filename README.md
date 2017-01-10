@@ -4,8 +4,15 @@ Ever since the nba stopped public access of their movement data, I though it wou
 Credit: [@neilmj](https://github.com/neilmj/BasketballData)
 
 ## Setup
-To unzip the 7z file run this command
+- To unzip the 7z file run this command
+
 ```
 cd data
 sudo ./setup.sh
+```
+
+- To convert the json files into easy to read csv's execute this script from root folder
+
+```
+python json_to_csv.py
 ```
