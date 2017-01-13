@@ -31,7 +31,6 @@ for file in files:
                 for player in moment[5]:
                     player.extend((moment[2], moment[3], game_id, event_id))
                     moments.append(player)
-            print 'Game ID: ' + str(game_id) + ' Event ID: ' + str(event_id)
 
         # movement frame is complete for game
         movement = pandas.DataFrame(moments, columns=movement_headers)
