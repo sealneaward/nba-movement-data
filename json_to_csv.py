@@ -11,7 +11,7 @@ if not os.path.exists(csv_path):
     os.makedirs(csv_path)
 
 count = 0
-movement_headers = ["team_id", "player_id", "x_loc", "y_loc", "radius", "game_clock", "shot_clock", "game_id",
+movement_headers = ["team_id", "player_id", "x_loc", "y_loc", "radius", "game_clock", "shot_clock", "quarter", "game_id",
                     "event_id"]
 for file in files:
     if '.json' not in file:
@@ -29,7 +29,7 @@ for file in files:
             movement_data = event['moments']
             for moment in movement_data:
                 for player in moment[5]:
-                    player.extend((moment[2], moment[3], game_id, event_id))
+                    player.extend((moment[2], moment[3], moment[0], game_id, event_id))
                     moments.append(player)
 
         # movement frame is complete for game
