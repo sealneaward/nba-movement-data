@@ -40,5 +40,5 @@ python movement/convert_movement.py
 
 5. Fix the shot-times
 ```
-python fix_shot_times.py
+python movement/fix_shot_times.py
 ```
