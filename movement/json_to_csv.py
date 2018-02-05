@@ -3,8 +3,10 @@ import os
 import sys
 import json
 
-data_path = sys.path[0] + '/data/'
-csv_path = data_path + 'csv'
+import movement.config as CONFIG
+
+data_path = CONFIG.data.dir
+csv_path = CONFIG.data.movement.dir
 files = os.listdir(data_path)
 
 if not os.path.exists(csv_path):
@@ -18,7 +20,7 @@ for file in files:
         continue
     try:
         count = count + 1
-        file_data = open(data_path + file)
+        file_data = open('%s/%s' % (data_path, file))
         game_id = file.replace('.json', '')
         data = json.load(file_data)
         events = data['events']
@@ -34,7 +36,7 @@ for file in files:
 
         # movement frame is complete for game
         movement = pandas.DataFrame(moments, columns=movement_headers)
-        movement.to_csv('./data/csv/' + game_id + '.csv', index=False)
+        movement.to_csv('%s/%s.csv' % (csv_path, game_id), index=False)
         # movement.to_json('./data/json/' + game_id + '.json', orient='records')
 
         print '\n'
