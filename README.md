@@ -33,12 +33,12 @@ python setup.py install
 python movement/json_to_csv.py
 ```
 
-4. Convert the full-court to half-court
+4. Convert the full-court to half-court. An explanation of moving the SportVU movement can be found [here](https://github.com/sealneaward/movement-quadrants).
 ```
 python movement/convert_movement.py
 ```
 
-5. Fix the shot-times
+5. Fix the shot-times. The current logged shot times in play-by-play data do not correctly record the right times and are often 3-4 seconds late.
 ```
 python movement/fix_shot_times.py
 ```
