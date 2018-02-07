@@ -6,11 +6,10 @@ import re
 import movement.config as CONFIG
 
 
-def convert_time(times):
+def convert_time(minutes, seconds):
     new_times = []
-
-    for time in times:
-        m, s = time.split(':')
+    for ind in range(len(minutes)):
+        m, s = minutes[ind], seconds[ind]
         time = int(m) * 60 + int(s)
         new_times.append(time)
 
@@ -39,6 +38,8 @@ def get_events(event_dir, games):
         else:
             game_events = pd.read_csv('%s/%s.csv' % (event_dir, game))
             events.append(game_events)
+
+    events['GAME_ID'] = '00' + events['GAME_ID'].astype(int).astype(str)
 
     return events
 
