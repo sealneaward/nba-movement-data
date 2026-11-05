@@ -1,8 +1,10 @@
 *.json
 data/csv/**
 data/converted/**
+data/animations/**
 .idea/**
 *.pyc
 build/**
 dist/**
 movement.egg-info/**
+nba-movement-venv/**

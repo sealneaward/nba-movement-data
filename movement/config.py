@@ -1,4 +1,4 @@
-from _config_section import ConfigSection
+from ._config_section import ConfigSection
 
 import os
 from movement.constant import data_dir

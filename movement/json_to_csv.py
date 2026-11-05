@@ -39,14 +39,14 @@ for file in files:
         movement.to_csv('%s/%s.csv' % (csv_path, game_id), index=False)
         # movement.to_json('./data/json/' + game_id + '.json', orient='records')
 
-        print '\n'
-        print '\n'
-        print 'Finished collecting dataframe for Game ID: ' + game_id
-        print 'Completed : ' + str(count) + ' games.'
+        print ('\n')
+        print ('\n')
+        print ('Finished collecting dataframe for Game ID: ' + game_id)
+        print ('Completed : ' + str(count) + ' games.')
     except Exception as e:
-        print 'Error in loading: ' + str(file) + ' file, Error: ' + str(e)
+        print ('Error in loading: ' + str(file) + ' file, Error: ' + str(e))
 
-print '\n'
-print '\n'
-print 'Finished collecting dataframes for all games.'
-print str(count) + ' games counted'
+print ('\n')
+print ('\n')
+print ('Finished collecting dataframes for all games.')
+print (str(count) + ' games counted')
