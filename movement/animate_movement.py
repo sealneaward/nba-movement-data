@@ -171,8 +171,7 @@ def draw_court(ax):
     ax.set_xlim(-3, COURT_LENGTH + 3)
     ax.set_ylim(-3, COURT_WIDTH + 3)
     ax.set_aspect('equal')
-    ax.set_xlabel('Court Length (ft)', fontsize=11)
-    ax.set_ylabel('Court Width (ft)', fontsize=11)
+    ax.axis('off')
     ax.invert_yaxis()
 
 
@@ -218,22 +217,27 @@ def animate_event(df, output_path, fps=10, figsize=(14, 8)):
         team_colors[team_list[0]] = '#1f77b4'
         team_colors[team_list[1]] = '#ff7f0e'
     
-    # Create unique game_clock snapshots within each event
+    # Create unique game_clock snapshots across all events, removing duplicates
+    # For each unique game_clock, track all applicable event IDs
     frames_data = []
-    for event_id in events:
-        event_df = df[df['event_id'] == event_id]
-        # Get unique timestamps and sort in descending order (game_clock counts down)
-        unique_times = sorted(event_df['game_clock'].unique(), reverse=True)
-        for game_clock in unique_times:
-            # Get ALL rows at this exact timestamp
-            frame_data = event_df[event_df['game_clock'] == game_clock]
-            frames_data.append((event_id, game_clock, frame_data))
+    unique_times = sorted(df['game_clock'].unique(), reverse=True)
+    
+    for game_clock in unique_times:
+        # Get all rows at this exact timestamp across all events
+        frame_data = df[df['game_clock'] == game_clock]
+        # Get all event IDs that have data at this timestamp
+        applicable_events = sorted(frame_data['event_id'].unique())
+        frames_data.append((applicable_events, game_clock, frame_data))
     
     print(f"Rendering animation ({len(frames_data)} frames)...")
     temp_frames = []
     
-    for i, (event_id, game_clock, frame_df) in enumerate(frames_data):
+    for i, (applicable_events, game_clock, frame_df) in enumerate(frames_data):
         fig, ax = plt.subplots(figsize=figsize)
+        
+        # Add margins around the figure for text
+        fig.subplots_adjust(top=0.92, bottom=0.12, left=0.12, right=0.95)
+        
         draw_court(ax)
         
         # Get all positions at this exact moment
@@ -258,13 +262,22 @@ def animate_event(df, output_path, fps=10, figsize=(14, 8)):
         quarter = int(first_row['quarter'])
         shot_clock = first_row['shot_clock']
         
-        ax.text(0.5, 1.02, f'Event ID: {event_id}', transform=ax.transAxes,
-               ha='center', fontsize=14, weight='bold')
-        ax.text(0.02, 0.98, f'Quarter: {quarter}\nGame Clock: {game_clock:.2f}s\nShot Clock: {shot_clock:.2f}s',
-               transform=ax.transAxes, va='top', fontsize=10, family='monospace')
+        # Format event IDs display
+        if len(applicable_events) == 1:
+            event_text = f'Event ID: {applicable_events[0]}'
+        else:
+            event_text = f'Event IDs: {", ".join(map(str, applicable_events))}'
+        
+        # Position title text in figure coordinates (outside the axes with margin)
+        fig.text(0.5, 0.96, event_text, 
+                ha='center', fontsize=14, weight='bold')
+        
+        # Position info text in top-left with margin
+        fig.text(0.05, 0.08, f'Quarter: {quarter}\nGame Clock: {game_clock:.2f}s\nShot Clock: {shot_clock:.2f}s',
+                fontsize=10, family='monospace', verticalalignment='top')
         
         temp_file = f'/tmp/frame_{i:06d}.png'
-        fig.savefig(temp_file, dpi=100, bbox_inches='tight')
+        fig.savefig(temp_file, dpi=100, bbox_inches='tight', pad_inches=0.1)
         temp_frames.append(temp_file)
         plt.close(fig)
         
