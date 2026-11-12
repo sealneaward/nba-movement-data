@@ -46,3 +46,23 @@ python fix_shot_times.py
 In the fixing logic, the shot time is defined as the highest acceleration point before the ball reaches it's peak, within a defined window.
 The logic can be seen below.
 ![plot](movement/plot.png)
+
+## Animation with Possession Indicators
+
+Generate MP4 animations of player movement with team possession displayed in the top-right corner:
+
+```bash
+python movement/animate_movement_pil.py animate data/csv/[GAME_ID].csv \
+    --event-ids [START] [END] \
+    --output data/animations/animation.mp4 \
+    --fps 10
+```
+
+**Features:**
+- 🎨 **Color-coded possession indicator** matching team colors (shown in top-right)
+- 📍 **Automatic event filtering** - uses the largest event ID in the range
+- 🏀 **Unknown possession handling** (displayed as "Unknown" in black)
+- 📊 **Automatic data integration** from NBA event CSVs
+- ✨ **Clean display** - no event ID labels
+
+See [POSSESSION_QUICK_START.md](POSSESSION_QUICK_START.md) for detailed documentation.

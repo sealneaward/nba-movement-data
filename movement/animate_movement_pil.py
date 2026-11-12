@@ -14,6 +14,7 @@ import io
 import time
 
 from court import draw_court, COURT_LENGTH, COURT_WIDTH
+from possession_labeling import add_possession_label, TEAM_ID_MAP
 
 # Color mapping for teams
 TEAM_COLORS = {
@@ -21,6 +22,9 @@ TEAM_COLORS = {
     1610612766: '#ff7f0e',  # Orange
     -1: 'black'  # Ball
 }
+
+# Reverse mapping from abbreviation to team ID
+TEAM_ABBR_TO_ID = {v: k for k, v in TEAM_ID_MAP.items()}
 
 def validate_game(df):
     """Validate that the game has exactly two teams (excluding the ball)."""
@@ -37,15 +41,27 @@ def validate_game(df):
 
 
 def dedupe_frames(df):
-    frames_data = []
-    unique_times = sorted(df['game_clock'].unique(), reverse=True)
+    """Keep only the latest event at each game_clock to avoid duplicates.
     
-    for game_clock in unique_times:
-        # Get all rows at this exact timestamp across all events
-        frame_data = df[df['game_clock'] == game_clock]
-        # Get all event IDs that have data at this timestamp
-        applicable_events = sorted(frame_data['event_id'].unique())
-        frames_data.append((applicable_events, game_clock, frame_data))
+    When multiple events occur at the same game_clock, we only show that moment
+    once - from the latest event. This ensures possession stays constant.
+    """
+    # Sort by event_id descending (latest first), then game_clock
+    df_sorted = df.sort_values(['event_id', 'game_clock'], ascending=[False, False])
+    
+    # Keep only the first occurrence of each game_clock (which is the latest event)
+    df_deduped = df_sorted.drop_duplicates(subset=['game_clock'], keep='first')
+    
+    # Re-sort by game_clock descending for chronological playback
+    df_deduped = df_deduped.sort_values('game_clock', ascending=False)
+    
+    frames_data = []
+    for _, first_row in df_deduped.iterrows():
+        game_clock = first_row['game_clock']
+        event_id = first_row['event_id']
+        # Get all players at this exact game_clock from the latest event
+        frame_data = df[(df['game_clock'] == game_clock) & (df['event_id'] == event_id)]
+        frames_data.append((event_id, game_clock, frame_data))
     
     return frames_data
 
@@ -80,7 +96,7 @@ def find_marker_in_image(img_array, target_color, tolerance=30):
 
 
 def load_event_data(csv_path, event_ids):
-    """Load and filter movement data for specified event IDs."""
+    """Load and filter movement data for specified event ID range, with possession labels."""
     df = pd.read_csv(csv_path)
     
     if isinstance(event_ids, list):
@@ -95,6 +111,34 @@ def load_event_data(csv_path, event_ids):
     
     # Sort by event_id and game_clock for proper sequencing
     filtered = filtered.sort_values(['event_id', 'game_clock'], ascending=[True, False])
+    
+    # Load possession labels from events CSV
+    game_id = filtered['game_id'].iloc[0] if len(filtered) > 0 else None
+    if game_id:
+        events_csv_path = Path(csv_path).parent.parent / 'events' / f'{int(game_id):010d}.csv'
+        if events_csv_path.exists():
+            print(f"Loading possession data from {events_csv_path}...")
+            events_df = pd.read_csv(events_csv_path)
+            events_df = add_possession_label(events_df)
+            
+            # Extract event_id, possession_team, and descriptions, mapping EVENTNUM to our event_id
+            possession_map = dict(zip(events_df['EVENTNUM'], events_df['possession_team']))
+            home_desc_map = dict(zip(events_df['EVENTNUM'], events_df['HOMEDESCRIPTION']))
+            visitor_desc_map = dict(zip(events_df['EVENTNUM'], events_df['VISITORDESCRIPTION']))
+            
+            filtered['possession_team'] = filtered['event_id'].map(possession_map)
+            filtered['home_description'] = filtered['event_id'].map(home_desc_map)
+            filtered['visitor_description'] = filtered['event_id'].map(visitor_desc_map)
+        else:
+            print(f"Events CSV not found at {events_csv_path}, possession data unavailable")
+            filtered['possession_team'] = None
+            filtered['home_description'] = None
+            filtered['visitor_description'] = None
+    else:
+        filtered['possession_team'] = None
+        filtered['home_description'] = None
+        filtered['visitor_description'] = None
+    
     return filtered
 
 
@@ -222,7 +266,8 @@ def draw_circle_with_border(draw, x, y, radius, fill_color, border_color, border
 
 def compose_frame_pil(background_img, positions_at_time, colors_at_time, 
                       sizes_at_time, event_text, info_text, x_scale, y_scale, x_offset, y_offset,
-                      padding_bottom=96, padding_top=80):
+                      possession_team=None, home_description=None, visitor_description=None,
+                      frame_df=None, padding_bottom=96, padding_top=120):
     """Compose a single frame by overlaying scatter points on background image.
     
     Uses pre-calculated coordinate mapping from court space to pixel space.
@@ -230,6 +275,7 @@ def compose_frame_pil(background_img, positions_at_time, colors_at_time,
     Returns numpy array suitable for imageio.
     
     Args:
+        possession_team: Team abbreviation with possession (e.g., 'BOS'), or None/'Unknown'
         padding_bottom: pixels to add below the court for info text (default 96, divisible by 16)
         padding_top: pixels to add above the court for title text (default 80, divisible by 16)
     """
@@ -242,6 +288,13 @@ def compose_frame_pil(background_img, positions_at_time, colors_at_time,
     canvas.paste(background_img, (0, padding_top))
     
     draw = ImageDraw.Draw(canvas)
+    
+    # Get possession team's team ID if we have possession info
+    possession_team_id = None
+    if possession_team and str(possession_team).upper() != 'UNKNOWN' and pd.notna(possession_team):
+        # Find the team ID for the possession team abbreviation
+        possession_team_str = str(possession_team).upper()
+        possession_team_id = TEAM_ABBR_TO_ID.get(possession_team_str)
     
     # Draw scatter points using coordinate mapping
     for pos, color, size in zip(positions_at_time, colors_at_time, sizes_at_time):
@@ -266,18 +319,58 @@ def compose_frame_pil(background_img, positions_at_time, colors_at_time,
     # Add text overlays
     title_font = ImageFont.load_default(size=32)
     info_font = ImageFont.load_default(size=24)
+    small_font = ImageFont.load_default(size=20)
     
-    # Draw title text (event IDs) in top padding area, with vertical centering
+    # Draw title text (event IDs) in top padding area
     title_bbox = draw.textbbox((0, 0), event_text, font=title_font)
     title_width = title_bbox[2] - title_bbox[0]
     title_height = title_bbox[3] - title_bbox[1]
     title_x = (canvas_width - title_width) // 2
-    title_y = (padding_top - title_height) // 2
+    title_y = 12
     draw.text((title_x, title_y), event_text, fill=(0, 0, 0), font=title_font)
+    
+    # Draw home and visitor descriptions below event ID with generous spacing
+    desc_y = title_y + title_height + 30
+    
+    # Extract team colors from frame_df
+    team_ids = sorted([tid for tid in frame_df['team_id'].unique() if tid != -1]) if frame_df is not None else []
+    
+    if pd.notna(home_description) and home_description:
+        home_desc_text = f"Home: {home_description}"
+        home_color = hex_to_rgb(TEAM_COLORS.get(team_ids[0], 'gray')) if team_ids else (0, 0, 0)
+        draw.text((10, desc_y), home_desc_text, fill=home_color, font=small_font)
+        desc_y += 10
+    
+    if pd.notna(visitor_description) and visitor_description:
+        visitor_desc_text = f"Visitor: {visitor_description}"
+        visitor_color = hex_to_rgb(TEAM_COLORS.get(team_ids[1], 'gray')) if len(team_ids) > 1 else (0, 0, 0)
+        draw.text((10, desc_y), visitor_desc_text, fill=visitor_color, font=small_font)
+    
+    
+    # Draw possession indicator in top-right corner
+    possession_label = str(possession_team) if pd.notna(possession_team) else 'Unknown'
+    possession_label = possession_label if possession_label else 'Unknown'
+    possession_text = f"Possession: {possession_label}"
+    
+    # Determine color for possession indicator
+    possession_text_color = (0, 0, 0)  # Default to black for unknown
+    if possession_label != 'Unknown' and possession_team_id:
+        team_color = TEAM_COLORS.get(possession_team_id, 'gray')
+        possession_text_color = hex_to_rgb(team_color)
+    
+    # Position in top-right corner with some margin
+    poss_bbox = draw.textbbox((0, 0), possession_text, font=small_font)
+    poss_width = poss_bbox[2] - poss_bbox[0]
+    poss_height = poss_bbox[3] - poss_bbox[1]
+    poss_x = canvas_width - poss_width - 15
+    poss_y = 10
+    draw.text((poss_x, poss_y), possession_text, fill=possession_text_color, font=small_font)
     
     # Draw info text (quarter, clocks) in bottom padding area, with some margin
     info_x = int(canvas_width * 0.02)
     info_y = padding_top + background_img.height + 10
+    
+    # Draw main info text
     draw.text((info_x, info_y), info_text, fill=(0, 0, 0), font=info_font)
     
     # Convert PIL Image to numpy array for imageio
@@ -321,9 +414,8 @@ def animate_event(df, output_path, fps=10, figsize=(14, 8)):
     encode_start = time.time()
     
     with imageio.get_writer(output_path, fps=fps, codec='libx264') as writer:
-        for i, (applicable_events, game_clock, frame_df) in enumerate(frames_data):
+        for i, (event_id, game_clock, frame_df) in enumerate(frames_data):
             # Get all positions at this exact moment
-            # scatter_start = time.time()
             positions_at_time = []
             colors_at_time = []
             sizes_at_time = []
@@ -333,29 +425,30 @@ def animate_event(df, output_path, fps=10, figsize=(14, 8)):
                 team = data_row['team_id']
                 colors_at_time.append(TEAM_COLORS.get(team, 'gray'))
                 sizes_at_time.append(300 if team == -1 else 200)
-            # scatter_total += time.time() - scatter_start
             
             # Prepare text
-            # text_start = time.time()
             first_row = frame_df.iloc[0]
             quarter = int(first_row['quarter'])
             shot_clock = first_row['shot_clock']
             
-            # Format event IDs display
-            if len(applicable_events) == 1:
-                event_text = f'Event ID: {applicable_events[0]}'
-            else:
-                event_text = f'Event IDs: {", ".join(map(str, applicable_events))}'
+            # Get event descriptions and possession info from the frame
+            possession_team = first_row.get('possession_team')
+            home_description = first_row.get('home_description')
+            visitor_description = first_row.get('visitor_description')
+            
+            # Display the event ID
+            event_text = f'Event ID: {event_id}'
             
             info_text = f'Quarter: {quarter}\nGame Clock: {game_clock:.2f}s\nShot Clock: {shot_clock:.2f}s'
-            # text_total += time.time() - text_start
             
             # Compose frame with PIL using coordinate mapping
-            # compose_start = time.time()
             frame_array = compose_frame_pil(court_background, positions_at_time, colors_at_time, 
                                             sizes_at_time, event_text, info_text, 
-                                            x_scale, y_scale, x_offset, y_offset)
-            # compose_total += time.time() - compose_start
+                                            x_scale, y_scale, x_offset, y_offset,
+                                            possession_team=possession_team,
+                                            home_description=home_description,
+                                            visitor_description=visitor_description,
+                                            frame_df=frame_df)
             
             writer.append_data(frame_array)
             

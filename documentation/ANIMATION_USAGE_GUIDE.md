@@ -57,33 +57,29 @@ python movement/animate_movement.py {animate,court} [OPTIONS]
 
 ## What's Visualized
 
-### Court Elements
-
-The court diagram includes:
-- **Baselines & Sidelines**: Court perimeter (94 ft × 50 ft)
-- **Half-Court Line**: Divides court into halves
-- **Center Court Circle**: 12 ft diameter outer circle with 4 ft diameter inner circle
-- **Free Throw Lane (Paint)**: 16 ft × 19 ft rectangle at each end
-- **Free Throw Circle**: 6 ft radius semicircle with inside portion dashed
-- **Three-Point Line**: Arc of 23'9" (23.75 ft) from basket center with parallel 3 ft sideline extensions
-- **Restricted Area**: 4 ft radius semicircle at baseline
-- **Backboard**: 6 ft wide, positioned 4 ft from baseline
-- **Rim**: 18 inch diameter, positioned 5'3" (5.25 ft) from baseline
-
-### Animation Elements
+### Court & Players
 
 - **Court**: Official NBA court with all markings
-- **Players**: Color-coded by team
+- **Players**: Color-coded circles by team
   - Blue circles = Team 1 (1610612761)
   - Orange circles = Team 2 (1610612766)
 - **Ball**: Black circle (slightly larger)
-- **Info Display**: Game clock, shot clock, quarter, and event ID shown on each frame
+
+### Information Display
+
+Each frame shows:
+- **Event ID**: Display number of the event
+- **Home Description**: Text description of the home team's action (blue text)
+- **Visitor Description**: Text description of the visitor's action (orange text)
+- **Possession Indicator**: Team with ball possession in top-right corner
+- **Game Info**: Quarter, game clock, and shot clock
 
 ## Frame Count
 
 Each event contains multiple snapshots taken at different game clock times. For example:
 - Event 1 might have ~1,650 snapshots
-- At 20 FPS, this creates a ~82 second animation showing smooth player movement
+- At 10 FPS, this creates a ~165 second animation showing smooth player movement
+- Duplicate game clocks are removed (only the latest event shown at each timestamp)
 
 ## Examples
 
@@ -130,10 +126,10 @@ pip install pandas matplotlib numpy imageio imageio-ffmpeg
 
 ## Performance Notes
 
-- Each frame is rendered to PNG then encoded to MP4
-- Large ranges (100+ events) can take 5-10 minutes to process
-- Output quality: 1152x688 @ 44 kb/s bitrate
-- Codec: H.264 for broad compatibility
+- Frames are rendered and encoded to MP4 in one pass
+- Large ranges (100+ events) can take several minutes
+- Output: 1152x688 @ H.264 codec for broad compatibility
+- Possession labels loaded from events CSV if available
 
 ## Future Enhancements
 
